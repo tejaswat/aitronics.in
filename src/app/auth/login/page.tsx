@@ -2,13 +2,11 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabaseClient'
 import { useRouter } from 'next/navigation'
-import { useSearchParams } from 'next/navigation'
 
 type Mode = 'login' | 'signup'
 
 export default function AuthPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -16,9 +14,11 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false)
 
   useEffect(()=>{
-    const modeParam = searchParams.get('mode')
+    // Avoid useSearchParams hook during prerender; read from window.location instead in client effect.
+    const sp = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
+    const modeParam = sp.get('mode')
     if (modeParam === 'signup') setMode('signup')
-  },[searchParams])
+  },[])
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()

@@ -1,14 +1,15 @@
--- SQL schema for Fina Storefront
--- Apply in order: schema.sql then rls.sql
+-- Combined schema and RLS for Aitronics Storefront
+-- Creates schema aitronics_storefront and all objects within it.
+-- Safe to re-run; uses IF NOT EXISTS where possible.
 
--- Target schema
 CREATE SCHEMA IF NOT EXISTS aitronics_storefront;
-SET search_path TO aitronics_storefront, public;
 
--- Enable uuid-ossp for ids (keeps extension in public)
+-- Extensions (remain in public)
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Users table reference; auth.users is primary managed by Supabase Auth
+-- ========== Schema ==========
+
+-- Profiles (linked to auth.users)
 CREATE TABLE IF NOT EXISTS aitronics_storefront.profiles (
   id uuid REFERENCES auth.users ON DELETE CASCADE,
   display_name text,
@@ -101,7 +102,7 @@ CREATE TABLE IF NOT EXISTS aitronics_storefront.request_rate_limits (
   created_at timestamptz default now()
 );
 
--- Atomic order creation function: creates order, inserts items, decrements stock, all in a single transaction
+-- Atomic order creation function: creates order, inserts items, decrements stock
 CREATE OR REPLACE FUNCTION aitronics_storefront.create_order_with_items(p_user uuid, p_items jsonb, p_shipping jsonb DEFAULT '{}'::jsonb)
 RETURNS uuid LANGUAGE plpgsql AS $$
 DECLARE
@@ -136,8 +137,83 @@ BEGIN
 END;
 $$;
 
--- Indexes for performance
+-- Indexes
 CREATE INDEX IF NOT EXISTS idx_products_category ON aitronics_storefront.products(category_id);
 CREATE INDEX IF NOT EXISTS idx_orders_user ON aitronics_storefront.orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_cart_user ON aitronics_storefront.carts(user_id);
 CREATE INDEX IF NOT EXISTS idx_order_items_order ON aitronics_storefront.order_items(order_id);
+
+-- ========== RLS & Policies ==========
+
+ALTER TABLE aitronics_storefront.products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE aitronics_storefront.categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE aitronics_storefront.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE aitronics_storefront.order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE aitronics_storefront.carts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE aitronics_storefront.cart_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE aitronics_storefront.request_rate_limits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE aitronics_storefront.profiles ENABLE ROW LEVEL SECURITY;
+
+-- Products: public read-only
+CREATE POLICY IF NOT EXISTS public_read_products ON aitronics_storefront.products
+  FOR SELECT USING (true);
+
+-- Categories: public read-only
+CREATE POLICY IF NOT EXISTS public_read_categories ON aitronics_storefront.categories
+  FOR SELECT USING (true);
+
+CREATE POLICY IF NOT EXISTS admin_modify_categories ON aitronics_storefront.categories
+  FOR ALL USING (auth.jwt() ->> 'role' = 'admin');
+
+-- Orders: user scoped
+CREATE POLICY IF NOT EXISTS user_orders_select ON aitronics_storefront.orders
+  FOR SELECT USING (auth.role() = 'authenticated' AND user_id = auth.uid());
+
+CREATE POLICY IF NOT EXISTS user_orders_insert ON aitronics_storefront.orders
+  FOR INSERT WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY IF NOT EXISTS user_orders_update ON aitronics_storefront.orders
+  FOR UPDATE USING (user_id = auth.uid());
+
+-- Admin override
+CREATE POLICY IF NOT EXISTS admin_full_access_orders ON aitronics_storefront.orders
+  FOR ALL USING (auth.jwt() ->> 'role' = 'admin');
+
+-- Products: block public modifications
+CREATE POLICY IF NOT EXISTS no_public_modify_products ON aitronics_storefront.products
+  FOR UPDATE, DELETE USING (auth.role() = 'authenticated' AND auth.jwt() ->> 'role' = 'admin');
+
+-- Order items: select scoped to order owner/admin; insert via server only
+CREATE POLICY IF NOT EXISTS order_items_by_order ON aitronics_storefront.order_items
+  FOR SELECT USING (EXISTS (SELECT 1 FROM aitronics_storefront.orders o WHERE o.id = aitronics_storefront.order_items.order_id AND (o.user_id = auth.uid() OR auth.jwt() ->> 'role' = 'admin')));
+
+CREATE POLICY IF NOT EXISTS no_public_insert_order_items ON aitronics_storefront.order_items
+  FOR INSERT USING (auth.jwt() ->> 'role' = 'admin');
+
+-- Carts: user scoped
+CREATE POLICY IF NOT EXISTS user_cart_select ON aitronics_storefront.carts
+  FOR SELECT USING (auth.role() = 'authenticated' AND auth.uid() = user_id);
+CREATE POLICY IF NOT EXISTS user_cart_insert ON aitronics_storefront.carts
+  FOR INSERT WITH CHECK (auth.role() = 'authenticated' AND auth.uid() = user_id);
+CREATE POLICY IF NOT EXISTS user_cart_update ON aitronics_storefront.carts
+  FOR UPDATE USING (auth.role() = 'authenticated' AND auth.uid() = user_id);
+
+-- Cart items scoped by cart ownership
+CREATE POLICY IF NOT EXISTS cart_items_select ON aitronics_storefront.cart_items
+  FOR SELECT USING (EXISTS (SELECT 1 FROM aitronics_storefront.carts c WHERE c.id = aitronics_storefront.cart_items.cart_id AND c.user_id = auth.uid()));
+CREATE POLICY IF NOT EXISTS cart_items_insert ON aitronics_storefront.cart_items
+  FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM aitronics_storefront.carts c WHERE c.id = aitronics_storefront.cart_items.cart_id AND c.user_id = auth.uid()));
+CREATE POLICY IF NOT EXISTS cart_items_update ON aitronics_storefront.cart_items
+  FOR UPDATE USING (EXISTS (SELECT 1 FROM aitronics_storefront.carts c WHERE c.id = aitronics_storefront.cart_items.cart_id AND c.user_id = auth.uid()));
+CREATE POLICY IF NOT EXISTS cart_items_delete ON aitronics_storefront.cart_items
+  FOR DELETE USING (EXISTS (SELECT 1 FROM aitronics_storefront.carts c WHERE c.id = aitronics_storefront.cart_items.cart_id AND c.user_id = auth.uid()));
+
+-- request_rate_limits: service role only
+CREATE POLICY IF NOT EXISTS service_rate_limits ON aitronics_storefront.request_rate_limits
+  FOR ALL USING (auth.role() = 'service_role');
+
+-- profiles: owners or admin read; self-update
+CREATE POLICY IF NOT EXISTS profile_select ON aitronics_storefront.profiles
+  FOR SELECT USING (auth.uid() = id OR auth.jwt() ->> 'role' = 'admin');
+CREATE POLICY IF NOT EXISTS profile_update_self ON aitronics_storefront.profiles
+  FOR UPDATE USING (auth.uid() = id);

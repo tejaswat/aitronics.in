@@ -4,16 +4,18 @@ import { supabase } from '../lib/supabaseClient'
 
 type CartItem = { id: string; name: string; price: number; quantity: number }
 
+/* eslint-disable no-unused-vars */
 type CartState = {
   items: CartItem[]
   hydrated: boolean
-  add: (item: CartItem) => void
-  remove: (id: string) => void
+  add: (_item: CartItem) => void
+  remove: (_id: string) => void
   clear: () => void
-  setQuantity: (id: string, quantity: number) => void
-  syncToSupabase: (userId: string) => Promise<void>
-  loadFromSupabase: (userId: string) => Promise<void>
+  setQuantity: (_id: string, _quantity: number) => void
+  syncToSupabase: (_userId: string) => Promise<void>
+  loadFromSupabase: (_userId: string) => Promise<void>
 }
+/* eslint-enable no-unused-vars */
 
 const useCart = create<CartState>()(
   persist(
@@ -69,7 +71,7 @@ const useCart = create<CartState>()(
           .eq('cart_id', cartRow.id)
         if (items) {
           set({
-            items: items.map((i) => ({
+            items: items.map((i: any) => ({
               id: i.product_id,
               name: (i as any).products?.name ?? 'Item',
               price: i.unit_price,

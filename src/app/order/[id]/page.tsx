@@ -25,7 +25,8 @@ export default function OrderDetail() {
       .select('id,status,total,created_at,order_items(order_id,product_id,quantity,unit_price)')
       .eq('id', id)
       .maybeSingle()
-      .then(({ data, error }) => {
+      .then((res: { data: any; error: any }) => {
+        const { data, error } = res
         if (error) {
           setError(error.message)
         } else if (!data) {
