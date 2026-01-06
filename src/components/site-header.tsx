@@ -21,10 +21,12 @@ export default function SiteHeader() {
         </div>
 
         <div className="nav-fill">
-          <div style={{ width: '100%', maxWidth: 900 }}>
-            <HeaderSearch />
+          <div className="nav-search" style={{ width: '100%', maxWidth: 900 }}>
+            <div className="nav-search-field">
+              <HeaderSearch />
+            </div>
           </div>
-        </div>
+        </div> 
 
         <div className="nav-right">
           <div className="nav-div lang">

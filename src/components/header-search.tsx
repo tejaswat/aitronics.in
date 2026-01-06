@@ -82,6 +82,12 @@ export default function HeaderSearch({ autoFocus = false }: { autoFocus?: boolea
     }
   }
 
+  useEffect(() => {
+    // update an aria-live region so screen readers announce category changes
+    const el = document.getElementById('nav-search-category-announcer')
+    if (el) el.textContent = `Category: ${category === 'all' ? 'All categories' : category}`
+  }, [category])
+
   return (
     <div className="header-search amazon" ref={containerRef}>
       <form onSubmit={onSubmit} style={{ display: 'flex', width: '100%' }} role="search" aria-label="Search products">
