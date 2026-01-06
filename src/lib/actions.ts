@@ -31,7 +31,7 @@ export async function getCategories() {
   const client = getClient()
   if (!client) return []
   try {
-    const { data, error } = await client.from('categories').select('*').order('name', { ascending: true })
+    const { data, error } = await client.from('aitronics_storefront.categories').select('*').order('name', { ascending: true })
     if (error) {
       logger.warn('getCategories DB error', error)
       return []
@@ -57,7 +57,7 @@ export async function getProducts({
   const client = getClient()
   if (!client) return []
   try {
-    let query = client.from('products').select('*').order('created_at', { ascending: false }).range(offset, offset + limit - 1)
+    let query = client.from('aitronics_storefront.products').select('*').order('created_at', { ascending: false }).range(offset, offset + limit - 1)
     if (category) query = query.eq('category_id', category)
     if (search) query = query.ilike('name', `%${search}%`)
     const { data, error } = await query
@@ -76,7 +76,7 @@ export async function getProduct(id: string) {
   const client = getClient()
   if (!client) return null
   try {
-    const { data, error } = await client.from('products').select('*').eq('id', id).single()
+    const { data, error } = await client.from('aitronics_storefront.products').select('*').eq('id', id).single()
     if (error) {
       logger.warn('getProduct DB error', error)
       return null
@@ -94,7 +94,7 @@ export async function getRelatedProducts(categoryId: string | null, excludeId: s
   if (!client) return []
   try {
     const { data, error } = await client
-      .from('products')
+      .from('aitronics_storefront.products')
       .select('*')
       .eq('category_id', categoryId)
       .neq('id', excludeId)

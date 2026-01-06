@@ -21,7 +21,7 @@ export default function OrderDetail() {
     const id = params?.id as string
     if (!id) return
     supabase
-      .from('orders')
+      .from('aitronics_storefront.orders')
       .select('id,status,total,created_at,order_items(order_id,product_id,quantity,unit_price)')
       .eq('id', id)
       .maybeSingle()

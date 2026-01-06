@@ -11,7 +11,7 @@ export default function ProfileClient(){
   useEffect(()=>{
     if(!user) return
     setLoading(true)
-    supabase.from('orders').select('*,order_items(*)').eq('user_id', user.id).order('created_at', {ascending:false}).then((r: { data?: any[]; error?: any })=>{
+    supabase.from('aitronics_storefront.orders').select('*,order_items(*)').eq('user_id', user.id).order('created_at', {ascending:false}).then((r: { data?: any[]; error?: any })=>{
       setOrders(r.data || [])
       setLoading(false)
     })

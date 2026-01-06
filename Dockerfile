@@ -27,9 +27,11 @@ COPY --from=builder /app/node_modules ./node_modules
 
 # Ensure permissions
 RUN chown -R appuser:appgroup /app
+# install curl for healthchecks
+RUN apk add --no-cache curl
 USER appuser
 
 EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s CMD ["/bin/sh","-c","wget -qO- http://localhost:3000/api/health | grep 'ok' || exit 1"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s CMD ["/bin/sh","-c","curl -fsS http://localhost:3000/api/health | grep -q ok || exit 1"]
 
 CMD ["npm","start"]

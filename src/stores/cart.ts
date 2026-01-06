@@ -44,7 +44,7 @@ const useCart = create<CartState>()(
 
         // ensure cart exists
         const { data: cartRow, error: cartErr } = await supabase
-          .from('carts')
+          .from('aitronics_storefront.carts')
           .upsert({ user_id: userId }, { onConflict: 'user_id' })
           .select('id')
           .single()
@@ -56,17 +56,17 @@ const useCart = create<CartState>()(
           quantity: i.quantity,
           unit_price: i.price
         }))
-        await supabase.from('cart_items').upsert(payload, { onConflict: 'cart_id,product_id' })
+        await supabase.from('aitronics_storefront.cart_items').upsert(payload, { onConflict: 'cart_id,product_id' })
       },
       loadFromSupabase: async (userId: string) => {
         if (!userId) return
-        const { data: cartRow } = await supabase.from('carts').select('id').eq('user_id', userId).maybeSingle()
+        const { data: cartRow } = await supabase.from('aitronics_storefront.carts').select('id').eq('user_id', userId).maybeSingle()
         if (!cartRow?.id) {
           set({ hydrated: true })
           return
         }
         const { data: items } = await supabase
-          .from('cart_items')
+          .from('aitronics_storefront.cart_items')
           .select('product_id,quantity,unit_price,products(name)')
           .eq('cart_id', cartRow.id)
         if (items) {
