@@ -1,12 +1,12 @@
 -- ==========================================
--- Aitronics Storefront (Supabase install.sql)
+-- Aitronics Storefront (install.sql)
 -- Schema + Tables + Trigger + RLS + RPC
 -- ==========================================
 
 -- 1) Schema
 create schema if not exists aitronics_storefront;
 
--- 2) UUID support (Supabase typically has pgcrypto enabled already)
+-- 2) UUID support (PG cluster typically has pgcrypto enabled already)
 create extension if not exists pgcrypto;
 
 -- ==========================================
@@ -147,7 +147,7 @@ alter table aitronics_storefront.request_rate_limits enable row level security;
 
 -- Helper: admin check
 -- Note: You must set custom JWT claim "role": "admin" for admin users
--- (commonly via Supabase Auth hooks or your own admin tooling).
+-- (commonly via auth hooks or your own admin tooling).
 
 -- ==========================================
 -- 6) Policies

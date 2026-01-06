@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-// Supabase Edge Function (Deno) - Checkout
+// Checkout Edge Function (Deno)
 // Validates cart, enforces rate limits, verifies prices/stock, and creates orders atomically.
 
 import { serve } from 'std/server'
@@ -15,7 +15,7 @@ function logError(...args: unknown[]) {
 }
 
 if (!SUPABASE_URL || !SERVICE_KEY) {
-  logError('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY')
+  logError('Missing required environment variables: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY')
 }
 
 type CartItem = { product_id: string; quantity: number; unit_price: number }

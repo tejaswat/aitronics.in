@@ -8,7 +8,7 @@ SET search_path TO aitronics_storefront, public;
 -- Enable uuid-ossp for ids (keeps extension in public)
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Users table reference; auth.users is primary managed by Supabase Auth
+-- Users table reference; auth.users is primary managed by the project's auth system
 CREATE TABLE IF NOT EXISTS aitronics_storefront.profiles (
   id uuid REFERENCES auth.users ON DELETE CASCADE,
   display_name text,

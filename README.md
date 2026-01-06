@@ -1,12 +1,12 @@
 # AITRONICS
 
-Production-ready e-commerce storefront built with Next.js (App Router), TypeScript, Supabase at `https://gateway.thefina.com`, and Docker — optimized for Coolify.
+Production-ready e-commerce storefront built with Next.js (App Router), TypeScript, a Postgres backend at `https://gateway.thefina.com`, and Docker — optimized for Coolify.
 
 ---
 
 ## Features
 - Next.js App Router + TypeScript + responsive UI
-- Supabase Auth, Postgres, RLS, and transactional order creation
+- Auth, Postgres, RLS, and transactional order creation
 - Secure checkout Edge Function (price/stock validation + rate limiting)
 - Cart persisted locally and synced to Supabase when authenticated
 - State management with Zustand, loading skeletons, error boundaries
@@ -17,7 +17,7 @@ Production-ready e-commerce storefront built with Next.js (App Router), TypeScri
 
 ## Quick Start (local)
 1. Clone repo.
-2. Create a Supabase project (or use `https://gateway.thefina.com`) and run:
+2. Prepare a Postgres instance (or use `https://gateway.thefina.com`) and run:
    - `supabase/schema.sql`
    - `supabase/rls.sql`
 3. Create `.env.local`:
@@ -37,13 +37,10 @@ Production-ready e-commerce storefront built with Next.js (App Router), TypeScri
 
 ---
 
-## Supabase setup (gateway.thefina.com)
+## Backend setup (gateway.thefina.com)
 1. Apply SQL: `supabase/schema.sql` then `supabase/rls.sql`.
-2. Deploy the Edge Function:
-   ```
-   supabase functions deploy checkout --project-ref <your-ref>
-   ```
-3. Ensure RLS is enabled; anon has read-only to products/categories; orders/cart restricted to owners; admin via JWT claim `role = 'admin'`.
+2. Deploy the Checkout Edge Function to your functions platform (use your platform's deploy tool to publish the `supabase/functions/checkout` code).
+3. Ensure RLS is enabled; anonymous access has read-only to products/categories; orders/cart restricted to owners; admin via JWT claim `role = 'admin'`.
 4. Store `SUPABASE_SERVICE_ROLE_KEY` only in server/Edge Function environments (never in the client).
 
 ---

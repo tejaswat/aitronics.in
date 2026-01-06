@@ -8,12 +8,12 @@ const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 let _supabase: any
 if (!url || !anonKey) {
   // Do not throw during build-time; provide a helpful runtime error when used.
-  logger.warn('Supabase env not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.')
+  logger.warn('Data store env not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.')
   const isProd = process.env.NODE_ENV === 'production'
   if (isProd) {
     // In production, be strict and throw helpful runtime errors when the client is used.
     const err = () => {
-      throw new Error('Supabase env not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.')
+      throw new Error('Data store env not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.')
     }
     _supabase = {
       from: () => ({
@@ -36,18 +36,18 @@ if (!url || !anonKey) {
     // During local development and builds, return non-throwing stubs so prerendering doesn't crash.
     _supabase = {
       from: () => ({
-        upsert: async () => ({ data: null, error: new Error('Supabase not configured') }),
-        insert: async () => ({ data: null, error: new Error('Supabase not configured') }),
+        upsert: async () => ({ data: null, error: new Error('Data store not configured') }),
+        insert: async () => ({ data: null, error: new Error('Data store not configured') }),
         select: () => ({
-          eq: () => ({ maybeSingle: async () => ({ data: null, error: new Error('Supabase not configured') }), single: async () => ({ data: null, error: new Error('Supabase not configured') }) }),
-          maybeSingle: async () => ({ data: null, error: new Error('Supabase not configured') }),
-          single: async () => ({ data: null, error: new Error('Supabase not configured') })
+          eq: () => ({ maybeSingle: async () => ({ data: null, error: new Error('Data store not configured') }), single: async () => ({ data: null, error: new Error('Data store not configured') }) }),
+          maybeSingle: async () => ({ data: null, error: new Error('Data store not configured') }),
+          single: async () => ({ data: null, error: new Error('Data store not configured') })
         })
       }),
       auth: {
-        signInWithPassword: async () => ({ error: new Error('Supabase not configured') }),
-        signUp: async () => ({ error: new Error('Supabase not configured') }),
-        getSession: async () => ({ data: null, error: new Error('Supabase not configured') }),
+        signInWithPassword: async () => ({ error: new Error('Data store not configured') }),
+        signUp: async () => ({ error: new Error('Data store not configured') }),
+        getSession: async () => ({ data: null, error: new Error('Data store not configured') }),
         onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } })
       }
     }

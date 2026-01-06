@@ -9,7 +9,7 @@ const supabase: SupabaseClient | null =
 
 function getClient() {
   if (!supabase) {
-    logger.warn('Supabase env not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.')
+    logger.warn('Data store env not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.')
   }
   return supabase
 }
