@@ -1,0 +1,10 @@
+node_modules
+.next
+.env.local
+.env.*
+.DS_Store
+dist
+.vscode
+.git
+npm-debug.log
+.yarn
