@@ -32,6 +32,6 @@ RUN apk add --no-cache curl
 USER appuser
 
 EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s CMD ["/bin/sh","-c","curl -fsS http://localhost:3000/api/health | grep -q ok || exit 1"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s CMD ["/bin/sh","-c","status=$(curl -sS -o /dev/null -w '%{http_code}' http://localhost:3000/api/health || echo '000'); echo \"health=$status\"; [ \"$status\" = \"200\" ] || exit 1"]
 
 CMD ["npm","start"]

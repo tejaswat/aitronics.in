@@ -1,4 +1,4 @@
--- SQL schema for Fina Storefront
+-- SQL schema for AITRONICS
 -- Apply in order: schema.sql then rls.sql
 
 -- Target schema

@@ -1,4 +1,4 @@
-# Fina Storefront
+# AITRONICS
 
 Production-ready e-commerce storefront built with Next.js (App Router), TypeScript, Supabase at `https://gateway.thefina.com`, and Docker — optimized for Coolify.
 
