@@ -9,6 +9,7 @@ COPY package.json package-lock.json* ./
 RUN npm ci --production=false
 
 COPY . ./
+RUN mkdir -p public
 RUN npm run build
 
 # --- Production image ---
