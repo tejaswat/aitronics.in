@@ -1,219 +1,424 @@
--- Combined schema and RLS for Aitronics Storefront
--- Creates schema aitronics_storefront and all objects within it.
--- Safe to re-run; uses IF NOT EXISTS where possible.
+-- ==========================================
+-- Aitronics Storefront (Supabase install.sql)
+-- Schema + Tables + Trigger + RLS + RPC
+-- ==========================================
 
-CREATE SCHEMA IF NOT EXISTS aitronics_storefront;
+-- 1) Schema
+create schema if not exists aitronics_storefront;
 
--- Extensions (remain in public)
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- 2) UUID support (Supabase typically has pgcrypto enabled already)
+create extension if not exists pgcrypto;
 
--- ========== Schema ==========
+-- ==========================================
+-- 3) Tables
+-- ==========================================
 
--- Profiles (linked to auth.users)
-CREATE TABLE IF NOT EXISTS aitronics_storefront.profiles (
-  id uuid REFERENCES auth.users ON DELETE CASCADE,
+-- Profiles (1:1 with auth.users)
+create table if not exists aitronics_storefront.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
   display_name text,
   email text,
-  role text default 'user',
-  created_at timestamptz default now(),
-  PRIMARY KEY (id)
+  role text not null default 'user',
+  created_at timestamptz not null default now()
 );
 
--- Keep profile email in sync with auth.users metadata
-CREATE OR REPLACE FUNCTION aitronics_storefront.handle_new_user()
-RETURNS trigger AS $$
-BEGIN
-  INSERT INTO aitronics_storefront.profiles (id, email, display_name)
-  VALUES (NEW.id, NEW.email, COALESCE(NEW.raw_user_meta_data->>'full_name', ''))
-  ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-AFTER INSERT ON auth.users FOR EACH ROW
-EXECUTE FUNCTION aitronics_storefront.handle_new_user();
-
 -- Categories
-CREATE TABLE IF NOT EXISTS aitronics_storefront.categories (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name text NOT NULL,
-  slug text UNIQUE NOT NULL,
-  created_at timestamptz default now()
+create table if not exists aitronics_storefront.categories (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  slug text not null unique,
+  created_at timestamptz not null default now()
 );
 
 -- Products
-CREATE TABLE IF NOT EXISTS aitronics_storefront.products (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name text NOT NULL,
+create table if not exists aitronics_storefront.products (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
   description text,
-  price integer NOT NULL, -- stored in cents
-  currency text default 'USD',
-  category_id uuid REFERENCES aitronics_storefront.categories(id) ON DELETE SET NULL,
-  stock integer default 0,
+  price integer not null check (price >= 0), -- cents
+  currency text not null default 'USD',
+  category_id uuid references aitronics_storefront.categories(id) on delete set null,
+  stock integer not null default 0 check (stock >= 0),
   metadata jsonb,
-  created_at timestamptz default now()
+  created_at timestamptz not null default now()
 );
 
--- Carts (for authenticated users syncing with local storage)
-CREATE TABLE IF NOT EXISTS aitronics_storefront.carts (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id uuid REFERENCES auth.users ON DELETE CASCADE,
-  updated_at timestamptz default now()
-);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_carts_user ON aitronics_storefront.carts(user_id);
+create index if not exists idx_products_category
+  on aitronics_storefront.products(category_id);
 
-CREATE TABLE IF NOT EXISTS aitronics_storefront.cart_items (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  cart_id uuid REFERENCES aitronics_storefront.carts(id) ON DELETE CASCADE,
-  product_id uuid REFERENCES aitronics_storefront.products(id),
-  quantity integer NOT NULL,
-  unit_price integer NOT NULL,
-  UNIQUE (cart_id, product_id)
+-- Carts
+create table if not exists aitronics_storefront.carts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  updated_at timestamptz not null default now(),
+  unique (user_id)
+);
+
+create index if not exists idx_cart_user
+  on aitronics_storefront.carts(user_id);
+
+-- Cart Items
+create table if not exists aitronics_storefront.cart_items (
+  id uuid primary key default gen_random_uuid(),
+  cart_id uuid not null references aitronics_storefront.carts(id) on delete cascade,
+  product_id uuid not null references aitronics_storefront.products(id),
+  quantity integer not null check (quantity > 0),
+  unit_price integer not null check (unit_price >= 0),
+  unique (cart_id, product_id)
 );
 
 -- Orders
-CREATE TABLE IF NOT EXISTS aitronics_storefront.orders (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id uuid REFERENCES auth.users ON DELETE SET NULL,
-  status text DEFAULT 'pending',
-  total integer NOT NULL,
-  currency text DEFAULT 'USD',
-  shipping jsonb,
-  created_at timestamptz default now()
+create table if not exists aitronics_storefront.orders (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete set null,
+  status text not null default 'pending',
+  total integer not null check (total >= 0),
+  currency text not null default 'USD',
+  shipping jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
 );
 
--- Order items
-CREATE TABLE IF NOT EXISTS aitronics_storefront.order_items (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  order_id uuid REFERENCES aitronics_storefront.orders(id) ON DELETE CASCADE,
-  product_id uuid REFERENCES aitronics_storefront.products(id),
-  quantity integer NOT NULL,
-  unit_price integer NOT NULL
+create index if not exists idx_orders_user
+  on aitronics_storefront.orders(user_id);
+
+-- Order Items
+create table if not exists aitronics_storefront.order_items (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references aitronics_storefront.orders(id) on delete cascade,
+  product_id uuid not null references aitronics_storefront.products(id),
+  quantity integer not null check (quantity > 0),
+  unit_price integer not null check (unit_price >= 0)
 );
 
--- Rate limiting table for edge functions
-CREATE TABLE IF NOT EXISTS aitronics_storefront.request_rate_limits (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  key text NOT NULL, -- e.g., ip or user:<id>
-  window_start timestamptz NOT NULL,
-  requests int DEFAULT 1,
-  created_at timestamptz default now()
+create index if not exists idx_order_items_order
+  on aitronics_storefront.order_items(order_id);
+
+-- Rate limits (optional)
+create table if not exists aitronics_storefront.request_rate_limits (
+  id uuid primary key default gen_random_uuid(),
+  key text not null,                       -- ip or user:<uuid>
+  window_start timestamptz not null,
+  requests int not null default 1,
+  created_at timestamptz not null default now()
 );
 
--- Atomic order creation function: creates order, inserts items, decrements stock
-CREATE OR REPLACE FUNCTION aitronics_storefront.create_order_with_items(p_user uuid, p_items jsonb, p_shipping jsonb DEFAULT '{}'::jsonb)
-RETURNS uuid LANGUAGE plpgsql AS $$
-DECLARE
+-- ==========================================
+-- 4) Trigger: auth.users -> profiles
+-- ==========================================
+
+create or replace function aitronics_storefront.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = aitronics_storefront, public
+as $$
+begin
+  insert into aitronics_storefront.profiles (id, email, display_name)
+  values (
+    new.id,
+    new.email,
+    coalesce(new.raw_user_meta_data->>'full_name', '')
+  )
+  on conflict (id)
+  do update set email = excluded.email;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+
+create trigger on_auth_user_created
+after insert on auth.users
+for each row execute function aitronics_storefront.handle_new_user();
+
+-- ==========================================
+-- 5) RLS Enable
+-- ==========================================
+
+alter table aitronics_storefront.profiles enable row level security;
+alter table aitronics_storefront.categories enable row level security;
+alter table aitronics_storefront.products enable row level security;
+alter table aitronics_storefront.carts enable row level security;
+alter table aitronics_storefront.cart_items enable row level security;
+alter table aitronics_storefront.orders enable row level security;
+alter table aitronics_storefront.order_items enable row level security;
+alter table aitronics_storefront.request_rate_limits enable row level security;
+
+-- Helper: admin check
+-- Note: You must set custom JWT claim "role": "admin" for admin users
+-- (commonly via Supabase Auth hooks or your own admin tooling).
+
+-- ==========================================
+-- 6) Policies
+-- ==========================================
+
+-- Public read products/categories
+drop policy if exists public_read_products on aitronics_storefront.products;
+create policy public_read_products
+on aitronics_storefront.products
+for select
+using (true);
+
+drop policy if exists public_read_categories on aitronics_storefront.categories;
+create policy public_read_categories
+on aitronics_storefront.categories
+for select
+using (true);
+
+-- Admin manage products/categories
+drop policy if exists admin_manage_products on aitronics_storefront.products;
+create policy admin_manage_products
+on aitronics_storefront.products
+for all
+using (auth.jwt() ->> 'role' = 'admin')
+with check (auth.jwt() ->> 'role' = 'admin');
+
+drop policy if exists admin_manage_categories on aitronics_storefront.categories;
+create policy admin_manage_categories
+on aitronics_storefront.categories
+for all
+using (auth.jwt() ->> 'role' = 'admin')
+with check (auth.jwt() ->> 'role' = 'admin');
+
+-- Profiles: user can read/update self; admin can read all
+drop policy if exists profile_select on aitronics_storefront.profiles;
+create policy profile_select
+on aitronics_storefront.profiles
+for select
+using (auth.uid() = id or auth.jwt() ->> 'role' = 'admin');
+
+drop policy if exists profile_update_self on aitronics_storefront.profiles;
+create policy profile_update_self
+on aitronics_storefront.profiles
+for update
+using (auth.uid() = id)
+with check (auth.uid() = id);
+
+-- Carts: user only
+drop policy if exists cart_select on aitronics_storefront.carts;
+create policy cart_select
+on aitronics_storefront.carts
+for select
+using (auth.uid() = user_id);
+
+drop policy if exists cart_insert on aitronics_storefront.carts;
+create policy cart_insert
+on aitronics_storefront.carts
+for insert
+with check (auth.uid() = user_id);
+
+drop policy if exists cart_update on aitronics_storefront.carts;
+create policy cart_update
+on aitronics_storefront.carts
+for update
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists cart_delete on aitronics_storefront.carts;
+create policy cart_delete
+on aitronics_storefront.carts
+for delete
+using (auth.uid() = user_id);
+
+-- Cart items: must belong to a cart owned by user
+
+drop policy if exists cart_items_select on aitronics_storefront.cart_items;
+create policy cart_items_select
+on aitronics_storefront.cart_items
+for select
+using (
+  exists (
+    select 1 from aitronics_storefront.carts c
+    where c.id = cart_items.cart_id
+      and c.user_id = auth.uid()
+  )
+);
+
+drop policy if exists cart_items_insert on aitronics_storefront.cart_items;
+create policy cart_items_insert
+on aitronics_storefront.cart_items
+for insert
+with check (
+  exists (
+    select 1 from aitronics_storefront.carts c
+    where c.id = cart_items.cart_id
+      and c.user_id = auth.uid()
+  )
+);
+
+drop policy if exists cart_items_update on aitronics_storefront.cart_items;
+create policy cart_items_update
+on aitronics_storefront.cart_items
+for update
+using (
+  exists (
+    select 1 from aitronics_storefront.carts c
+    where c.id = cart_items.cart_id
+      and c.user_id = auth.uid()
+  )
+)
+with check (
+  exists (
+    select 1 from aitronics_storefront.carts c
+    where c.id = cart_items.cart_id
+      and c.user_id = auth.uid()
+  )
+);
+
+drop policy if exists cart_items_delete on aitronics_storefront.cart_items;
+create policy cart_items_delete
+on aitronics_storefront.cart_items
+for delete
+using (
+  exists (
+    select 1 from aitronics_storefront.carts c
+    where c.id = cart_items.cart_id
+      and c.user_id = auth.uid()
+  )
+);
+
+-- Orders: user sees own; admin sees all
+drop policy if exists orders_select on aitronics_storefront.orders;
+create policy orders_select
+on aitronics_storefront.orders
+for select
+using (user_id = auth.uid() or auth.jwt() ->> 'role' = 'admin');
+
+-- Orders insert: must be own user_id
+drop policy if exists orders_insert on aitronics_storefront.orders;
+create policy orders_insert
+on aitronics_storefront.orders
+for insert
+with check (user_id = auth.uid());
+
+-- Orders update: only admin (prevents users changing status/total)
+drop policy if exists orders_update_admin on aitronics_storefront.orders;
+create policy orders_update_admin
+on aitronics_storefront.orders
+for update
+using (auth.jwt() ->> 'role' = 'admin')
+with check (auth.jwt() ->> 'role' = 'admin');
+
+-- Order items: user can read items for own orders; admin all
+drop policy if exists order_items_select on aitronics_storefront.order_items;
+create policy order_items_select
+on aitronics_storefront.order_items
+for select
+using (
+  exists (
+    select 1 from aitronics_storefront.orders o
+    where o.id = order_items.order_id
+      and (o.user_id = auth.uid() or auth.jwt() ->> 'role' = 'admin')
+  )
+);
+
+-- Block direct writes to order_items (force RPC / server-side only)
+
+drop policy if exists order_items_insert_block on aitronics_storefront.order_items;
+create policy order_items_insert_block
+on aitronics_storefront.order_items
+for insert
+with check (false);
+
+drop policy if exists order_items_update_block on aitronics_storefront.order_items;
+create policy order_items_update_block
+on aitronics_storefront.order_items
+for update
+using (false);
+
+drop policy if exists order_items_delete_block on aitronics_storefront.order_items;
+create policy order_items_delete_block
+on aitronics_storefront.order_items
+for delete
+using (false);
+
+
+-- Rate limits: service role only
+drop policy if exists service_rate_limits on aitronics_storefront.request_rate_limits;
+create policy service_rate_limits
+on aitronics_storefront.request_rate_limits
+for all
+using (auth.role() = 'service_role')
+with check (auth.role() = 'service_role');
+
+-- ==========================================
+-- 7) RPC: Create order + items + decrement stock (safe)
+-- ==========================================
+
+create or replace function aitronics_storefront.create_order_with_items(
+  p_items jsonb,
+  p_shipping jsonb default '{}'::jsonb
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = aitronics_storefront, public
+as $$
+declare
   o_id uuid;
   item jsonb;
   total integer := 0;
   qty integer;
   up integer;
-BEGIN
-  PERFORM pg_advisory_xact_lock(1); -- avoid concurrent anomalies
-  FOR item IN SELECT * FROM jsonb_array_elements(p_items) LOOP
+  pid uuid;
+begin
+  -- Require logged-in user
+  if auth.uid() is null then
+    raise exception 'not_authenticated';
+  end if;
+
+  -- Validate + compute total + lock product rows to prevent race
+  for item in select * from jsonb_array_elements(p_items)
+  loop
     qty := (item->>'quantity')::int;
-    up := (item->>'unit_price')::int;
-    total := total + (qty * up);
+    up  := (item->>'unit_price')::int;
+    pid := (item->>'product_id')::uuid;
+
+    if qty <= 0 or up < 0 then
+      raise exception 'invalid_item';
+    end if;
+
+    -- lock product row
+    perform 1
+    from aitronics_storefront.products
+    where id = pid
+    for update;
+
     -- check stock
-    IF NOT EXISTS (SELECT 1 FROM aitronics_storefront.products WHERE id = (item->>'product_id')::uuid AND stock >= qty) THEN
-      RAISE EXCEPTION 'out_of_stock for %', item->>'product_id';
-    END IF;
-  END LOOP;
+    if not exists (
+      select 1 from aitronics_storefront.products
+      where id = pid and stock >= qty
+    ) then
+      raise exception 'out_of_stock:%', pid;
+    end if;
 
-  INSERT INTO aitronics_storefront.orders (user_id, status, total, shipping) VALUES (p_user, 'pending', total, p_shipping) RETURNING id INTO o_id;
+    total := total + (qty * up);
+  end loop;
 
-  FOR item IN SELECT * FROM jsonb_array_elements(p_items) LOOP
-    INSERT INTO aitronics_storefront.order_items (order_id, product_id, quantity, unit_price)
-    VALUES (o_id, (item->>'product_id')::uuid, (item->>'quantity')::int, (item->>'unit_price')::int);
+  insert into aitronics_storefront.orders (user_id, status, total, shipping)
+  values (auth.uid(), 'pending', total, p_shipping)
+  returning id into o_id;
 
-    -- decrement stock
-    UPDATE aitronics_storefront.products SET stock = stock - (item->>'quantity')::int WHERE id = (item->>'product_id')::uuid;
-  END LOOP;
+  for item in select * from jsonb_array_elements(p_items)
+  loop
+    insert into aitronics_storefront.order_items (order_id, product_id, quantity, unit_price)
+    values (
+      o_id,
+      (item->>'product_id')::uuid,
+      (item->>'quantity')::int,
+      (item->>'unit_price')::int
+    );
 
-  RETURN o_id;
-END;
+    update aitronics_storefront.products
+    set stock = stock - (item->>'quantity')::int
+    where id = (item->>'product_id')::uuid;
+  end loop;
+
+  return o_id;
+end;
 $$;
 
--- Indexes
-CREATE INDEX IF NOT EXISTS idx_products_category ON aitronics_storefront.products(category_id);
-CREATE INDEX IF NOT EXISTS idx_orders_user ON aitronics_storefront.orders(user_id);
-CREATE INDEX IF NOT EXISTS idx_cart_user ON aitronics_storefront.carts(user_id);
-CREATE INDEX IF NOT EXISTS idx_order_items_order ON aitronics_storefront.order_items(order_id);
-
--- ========== RLS & Policies ==========
-
-ALTER TABLE aitronics_storefront.products ENABLE ROW LEVEL SECURITY;
-ALTER TABLE aitronics_storefront.categories ENABLE ROW LEVEL SECURITY;
-ALTER TABLE aitronics_storefront.orders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE aitronics_storefront.order_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE aitronics_storefront.carts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE aitronics_storefront.cart_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE aitronics_storefront.request_rate_limits ENABLE ROW LEVEL SECURITY;
-ALTER TABLE aitronics_storefront.profiles ENABLE ROW LEVEL SECURITY;
-
--- Products: public read-only
-CREATE POLICY IF NOT EXISTS public_read_products ON aitronics_storefront.products
-  FOR SELECT USING (true);
-
--- Categories: public read-only
-CREATE POLICY IF NOT EXISTS public_read_categories ON aitronics_storefront.categories
-  FOR SELECT USING (true);
-
-CREATE POLICY IF NOT EXISTS admin_modify_categories ON aitronics_storefront.categories
-  FOR ALL USING (auth.jwt() ->> 'role' = 'admin');
-
--- Orders: user scoped
-CREATE POLICY IF NOT EXISTS user_orders_select ON aitronics_storefront.orders
-  FOR SELECT USING (auth.role() = 'authenticated' AND user_id = auth.uid());
-
-CREATE POLICY IF NOT EXISTS user_orders_insert ON aitronics_storefront.orders
-  FOR INSERT WITH CHECK (user_id = auth.uid());
-
-CREATE POLICY IF NOT EXISTS user_orders_update ON aitronics_storefront.orders
-  FOR UPDATE USING (user_id = auth.uid());
-
--- Admin override
-CREATE POLICY IF NOT EXISTS admin_full_access_orders ON aitronics_storefront.orders
-  FOR ALL USING (auth.jwt() ->> 'role' = 'admin');
-
--- Products: block public modifications
-CREATE POLICY IF NOT EXISTS no_public_modify_products ON aitronics_storefront.products
-  FOR UPDATE, DELETE USING (auth.role() = 'authenticated' AND auth.jwt() ->> 'role' = 'admin');
-
--- Order items: select scoped to order owner/admin; insert via server only
-CREATE POLICY IF NOT EXISTS order_items_by_order ON aitronics_storefront.order_items
-  FOR SELECT USING (EXISTS (SELECT 1 FROM aitronics_storefront.orders o WHERE o.id = aitronics_storefront.order_items.order_id AND (o.user_id = auth.uid() OR auth.jwt() ->> 'role' = 'admin')));
-
-CREATE POLICY IF NOT EXISTS no_public_insert_order_items ON aitronics_storefront.order_items
-  FOR INSERT USING (auth.jwt() ->> 'role' = 'admin');
-
--- Carts: user scoped
-CREATE POLICY IF NOT EXISTS user_cart_select ON aitronics_storefront.carts
-  FOR SELECT USING (auth.role() = 'authenticated' AND auth.uid() = user_id);
-CREATE POLICY IF NOT EXISTS user_cart_insert ON aitronics_storefront.carts
-  FOR INSERT WITH CHECK (auth.role() = 'authenticated' AND auth.uid() = user_id);
-CREATE POLICY IF NOT EXISTS user_cart_update ON aitronics_storefront.carts
-  FOR UPDATE USING (auth.role() = 'authenticated' AND auth.uid() = user_id);
-
--- Cart items scoped by cart ownership
-CREATE POLICY IF NOT EXISTS cart_items_select ON aitronics_storefront.cart_items
-  FOR SELECT USING (EXISTS (SELECT 1 FROM aitronics_storefront.carts c WHERE c.id = aitronics_storefront.cart_items.cart_id AND c.user_id = auth.uid()));
-CREATE POLICY IF NOT EXISTS cart_items_insert ON aitronics_storefront.cart_items
-  FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM aitronics_storefront.carts c WHERE c.id = aitronics_storefront.cart_items.cart_id AND c.user_id = auth.uid()));
-CREATE POLICY IF NOT EXISTS cart_items_update ON aitronics_storefront.cart_items
-  FOR UPDATE USING (EXISTS (SELECT 1 FROM aitronics_storefront.carts c WHERE c.id = aitronics_storefront.cart_items.cart_id AND c.user_id = auth.uid()));
-CREATE POLICY IF NOT EXISTS cart_items_delete ON aitronics_storefront.cart_items
-  FOR DELETE USING (EXISTS (SELECT 1 FROM aitronics_storefront.carts c WHERE c.id = aitronics_storefront.cart_items.cart_id AND c.user_id = auth.uid()));
-
--- request_rate_limits: service role only
-CREATE POLICY IF NOT EXISTS service_rate_limits ON aitronics_storefront.request_rate_limits
-  FOR ALL USING (auth.role() = 'service_role');
-
--- profiles: owners or admin read; self-update
-CREATE POLICY IF NOT EXISTS profile_select ON aitronics_storefront.profiles
-  FOR SELECT USING (auth.uid() = id OR auth.jwt() ->> 'role' = 'admin');
-CREATE POLICY IF NOT EXISTS profile_update_self ON aitronics_storefront.profiles
-  FOR UPDATE USING (auth.uid() = id);
+-- Allow authenticated users to call the RPC
+revoke all on function aitronics_storefront.create_order_with_items(jsonb, jsonb) from public;
+grant execute on function aitronics_storefront.create_order_with_items(jsonb, jsonb) to authenticated;

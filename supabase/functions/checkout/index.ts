@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 // Supabase Edge Function (Deno) - Checkout
 // Validates cart, enforces rate limits, verifies prices/stock, and creates orders atomically.
 
@@ -7,8 +8,14 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 const RATE_LIMIT = 10 // max requests/minute
 
+function logError(...args: unknown[]) {
+  if (Deno && Deno.env && Deno.env.get('ENV') !== 'production') {
+    console.error(...(args as any))
+  }
+}
+
 if (!SUPABASE_URL || !SERVICE_KEY) {
-  console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY')
+  logError('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY')
 }
 
 type CartItem = { product_id: string; quantity: number; unit_price: number }
@@ -148,7 +155,7 @@ serve(async (req) => {
     const orderId = (await orderRes.text()).replace(/"/g, '').trim()
     return new Response(JSON.stringify({ orderId, payment_reference: paymentResult.reference }), { status: 200 })
   } catch (err) {
-    console.error(err)
+    logError(err)
     const message = err instanceof Error ? err.message : 'server_error'
     const clientErrorPrefixes = ['product_not_found', 'price_mismatch', 'out_of_stock', 'invalid_', 'empty_cart']
     const status = clientErrorPrefixes.some((p) => message.startsWith(p)) ? 400 : 500

@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { z } from 'zod'
+import { logger } from '../../lib/logger'
 
 // API proxy to the Supabase Edge Function. Does not expose service role keys.
 const PayloadSchema = z.object({
@@ -39,7 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const data = await r.json()
     return res.status(r.status).json(data)
   } catch (e: any) {
-    console.error('Checkout API error', e)
+    logger.error('Checkout API error', e)
     return res.status(500).json({ error: 'server_error' })
   }
 }

@@ -6,6 +6,7 @@ type Params = { params: { id: string } }
 
 export default async function ProductDetail({ params }: Params) {
   const product = await getProduct(params.id)
+  if (!product) return <p>Product not found</p>
   const related = await getRelatedProducts(product.category_id, product.id)
 
   return (

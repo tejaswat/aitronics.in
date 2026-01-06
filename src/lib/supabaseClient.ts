@@ -1,27 +1,55 @@
 import { createClient } from '@supabase/supabase-js'
 
+import { logger } from './logger'
+
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 let _supabase: any
 if (!url || !anonKey) {
   // Do not throw during build-time; provide a helpful runtime error when used.
-  // This avoids failing Next.js prerendering when envs are not set in the build environment.
-  console.warn('Supabase env not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.')
-  // Minimal stub that surfaces helpful errors at runtime when someone attempts to use the client.
-  _supabase = {
-    from: () => ({
-      upsert: async () => ({ data: null, error: new Error('Supabase not configured') }),
-      insert: async () => ({ data: null, error: new Error('Supabase not configured') }),
-      select: () => ({
-        eq: () => ({ maybeSingle: async () => ({ data: null, error: new Error('Supabase not configured') }), single: async () => ({ data: null, error: new Error('Supabase not configured') }) }),
-        maybeSingle: async () => ({ data: null, error: new Error('Supabase not configured') }),
-        single: async () => ({ data: null, error: new Error('Supabase not configured') })
-      })
-    }),
-    auth: {
-      signInWithPassword: async () => ({ error: new Error('Supabase not configured') }),
-      signUp: async () => ({ error: new Error('Supabase not configured') })
+  logger.warn('Supabase env not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.')
+  const isProd = process.env.NODE_ENV === 'production'
+  if (isProd) {
+    // In production, be strict and throw helpful runtime errors when the client is used.
+    const err = () => {
+      throw new Error('Supabase env not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.')
+    }
+    _supabase = {
+      from: () => ({
+        upsert: async () => err(),
+        insert: async () => err(),
+        select: () => ({
+          eq: () => ({ maybeSingle: async () => err(), single: async () => err() }),
+          maybeSingle: async () => err(),
+          single: async () => err()
+        })
+      }),
+      auth: {
+        signInWithPassword: async () => err(),
+        signUp: async () => err(),
+        getSession: async () => err(),
+        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } })
+      }
+    }
+  } else {
+    // During local development and builds, return non-throwing stubs so prerendering doesn't crash.
+    _supabase = {
+      from: () => ({
+        upsert: async () => ({ data: null, error: new Error('Supabase not configured') }),
+        insert: async () => ({ data: null, error: new Error('Supabase not configured') }),
+        select: () => ({
+          eq: () => ({ maybeSingle: async () => ({ data: null, error: new Error('Supabase not configured') }), single: async () => ({ data: null, error: new Error('Supabase not configured') }) }),
+          maybeSingle: async () => ({ data: null, error: new Error('Supabase not configured') }),
+          single: async () => ({ data: null, error: new Error('Supabase not configured') })
+        })
+      }),
+      auth: {
+        signInWithPassword: async () => ({ error: new Error('Supabase not configured') }),
+        signUp: async () => ({ error: new Error('Supabase not configured') }),
+        getSession: async () => ({ data: null, error: new Error('Supabase not configured') }),
+        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } })
+      }
     }
   }
 } else {
