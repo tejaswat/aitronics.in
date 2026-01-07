@@ -1,45 +1,37 @@
-# ==========================================
-# Medusa backend - production Dockerfile
-# Folder: aitronics/Dockerfile
-# ==========================================
-
 FROM node:20-alpine AS build
 WORKDIR /app
-
 RUN apk add --no-cache libc6-compat
 
-# Install deps
-COPY package*.json ./
-RUN npm ci
+# Enable Yarn via corepack
+RUN corepack enable
 
-# Copy source
+COPY package.json yarn.lock ./
+RUN yarn install --frozen-lockfile
+
 COPY . .
 
-# Build (creates .medusa/server for Medusa build output)
-RUN npm run build
+# Build
+RUN yarn build
 
-# ---------------- Runtime ----------------
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-
 RUN apk add --no-cache libc6-compat
+RUN corepack enable
 
-# Copy built output + package files
 COPY --from=build /app/.medusa /app/.medusa
-COPY --from=build /app/package*.json /app/
+COPY --from=build /app/package.json /app/package.json
+COPY --from=build /app/yarn.lock /app/yarn.lock
 
-# Install production deps at root (if required by your build)
-RUN npm ci --omit=dev
+# Install prod deps
+RUN yarn install --frozen-lockfile --production=true
 
-# Install production deps inside the built server bundle
+# Install prod deps for built server bundle
 WORKDIR /app/.medusa/server
-COPY --from=build /app/.medusa/server/package*.json /app/.medusa/server/
-RUN npm ci --omit=dev
+COPY --from=build /app/.medusa/server/package.json /app/.medusa/server/package.json
+COPY --from=build /app/.medusa/server/yarn.lock /app/.medusa/server/yarn.lock
+RUN yarn install --frozen-lockfile --production=true
 
 WORKDIR /app
-
-# Medusa usually listens on 9000
 EXPOSE 9000
-
-CMD ["sh", "-lc", "cd .medusa/server && npm run start"]
+CMD ["sh", "-lc", "cd .medusa/server && yarn start"]
