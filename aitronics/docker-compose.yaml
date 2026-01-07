@@ -9,27 +9,55 @@ services:
       POSTGRES_DB: postgres
     volumes:
       - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres -h 127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   redis:
     image: redis:7
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   medusa:
     build: .
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgresql://postgres:supersecret@postgres:5432/postgres
       REDIS_URL: redis://redis:6379
       HOST: 0.0.0.0
       PORT: 9000
+      # Add your domain CORS so admin/store works
+      STORE_CORS: https://aitronics.in
+      ADMIN_CORS: https://aitronics.in
+      AUTH_CORS: https://aitronics.in
+      # You MUST set these for auth cookies/jwt
+      JWT_SECRET: supersecret
+      COOKIE_SECRET: supersecret
+    restart: unless-stopped
     command: >
       sh -c "
-      until pg_isready -h postgres -p 5432 -U postgres;
-      do echo waiting for db; sleep 2; done;
-      yarn medusa db:migrate &&
+      echo 'Waiting for Postgres...';
+      until pg_isready -h postgres -p 5432 -U postgres -d postgres; do
+        sleep 2; echo 'still waiting...';
+      done;
+      echo 'Running migrations...';
+      yarn medusa db:migrate;
+      echo 'Starting Medusa...';
       yarn start
       "
+    ports:
+      - "9000:9000"
 
 volumes:
   pgdata:
