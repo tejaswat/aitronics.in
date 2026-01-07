@@ -1,37 +1,26 @@
+# ---- build ----
 FROM node:20-alpine AS build
 WORKDIR /app
-RUN apk add --no-cache libc6-compat
 
-# Enable Yarn via corepack
-RUN corepack enable
+RUN apk add --no-cache libc6-compat python3 make g++
 
 COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile
+RUN corepack enable && yarn install --frozen-lockfile
 
 COPY . .
-
-# Build
 RUN yarn build
 
+# ---- runner ----
 FROM node:20-alpine AS runner
 WORKDIR /app
-ENV NODE_ENV=production
 RUN apk add --no-cache libc6-compat
-RUN corepack enable
 
-COPY --from=build /app/.medusa /app/.medusa
-COPY --from=build /app/package.json /app/package.json
-COPY --from=build /app/yarn.lock /app/yarn.lock
+ENV NODE_ENV=production
+ENV HOST=0.0.0.0
+ENV PORT=9000
 
-# Install prod deps
-RUN yarn install --frozen-lockfile --production=true
+# copy built app + deps
+COPY --from=build /app /app
 
-# Install prod deps for built server bundle
-WORKDIR /app/.medusa/server
-COPY --from=build /app/.medusa/server/package.json /app/.medusa/server/package.json
-COPY --from=build /app/.medusa/server/yarn.lock /app/.medusa/server/yarn.lock
-RUN yarn install --frozen-lockfile --production=true
-
-WORKDIR /app
 EXPOSE 9000
-CMD ["sh", "-lc", "cd .medusa/server && yarn start"]
+CMD ["yarn","start"]
