@@ -10,7 +10,7 @@ const S3_PATHNAME = process.env.MEDUSA_CLOUD_S3_PATHNAME
 
 /**
  * @type {import('next').NextConfig}
- */
+ 
 const nextConfig = {
   reactStrictMode: true,
   logging: {
@@ -54,5 +54,9 @@ const nextConfig = {
     ],
   },
 }
+*/
+const nextConfig = {
+  output: "standalone",
+};
 
 module.exports = nextConfig
