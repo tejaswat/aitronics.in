@@ -5,20 +5,20 @@ loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 const redisUrl = process.env.REDIS_URL
 const redisModules = redisUrl
   ? {
-      cacheService: {
-        resolve: '@medusajs/cache-redis',
+      cache: {
+        resolve: '@medusajs/medusa/cache-redis',
         options: {
           redisUrl,
         },
       },
-      eventBus: {
-        resolve: '@medusajs/event-bus-redis',
+      event_bus: {
+        resolve: '@medusajs/medusa/event-bus-redis',
         options: {
           redisUrl,
         },
       },
-      workflowEngine: {
-        resolve: '@medusajs/workflow-engine-redis',
+      workflows: {
+        resolve: '@medusajs/medusa/workflow-engine-redis',
         options: {
           redis: {
             url: redisUrl,
@@ -48,7 +48,5 @@ module.exports = defineConfig({
     disable: disableAdmin,
     backendUrl: process.env.MEDUSA_BACKEND_URL,
   },
-  modules: {
-    ...(redisModules ?? {}),
-  },
+  modules: redisModules,
 })
