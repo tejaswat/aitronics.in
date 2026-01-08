@@ -28,32 +28,20 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        DATABASE_URL: postgresql://postgres:1111@postgres:5432/postgres
-        DATABASE_EXTRA: '{"ssl":{"rejectUnauthorized":false}}'
-        REDIS_URL: redis://redis:6379
-        JWT_SECRET: supersecret
-        COOKIE_SECRET: supersecret
-        MEDUSA_ADMIN_ONBOARDING_TYPE: nextjs
-        MEDUSA_ADMIN_ONBOARDING_NEXTJS_DIRECTORY: aitronics-storefront
-        STORE_CORS: https://aitronics.in
-        ADMIN_CORS: https://adm.aitronics.in
-        AUTH_CORS: https://aitronics.in,https://adm.aitronics.in
-        PORT: "9000"
+        # IMPORTANT:
+        # If medusa backend is in root -> "."
+        # If medusa backend is in subfolder -> "backend" (or whatever folder name)
+        BACKEND_DIR: .
+
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+
     environment:
-      MEDUSA_ADMIN_ONBOARDING_TYPE: nextjs
-      MEDUSA_ADMIN_ONBOARDING_NEXTJS_DIRECTORY: aitronics-storefront
-
-      STORE_CORS: https://aitronics.in
-      ADMIN_CORS: https://adm.aitronics.in
-      AUTH_CORS: https://aitronics.in,https://adm.aitronics.in
-
-      PORT: "9000"
       HOST: 0.0.0.0
+      PORT: "9000"
 
       REDIS_URL: redis://redis:6379
       JWT_SECRET: supersecret
@@ -61,15 +49,20 @@ services:
 
       DATABASE_URL: postgresql://postgres:1111@postgres:5432/postgres
       DATABASE_EXTRA: '{"ssl":{"rejectUnauthorized":false}}'
+
+      MEDUSA_ADMIN_ONBOARDING_TYPE: nextjs
+      MEDUSA_ADMIN_ONBOARDING_NEXTJS_DIRECTORY: aitronics-storefront
+
+      # Production domains
+      STORE_CORS: https://aitronics.in
+      ADMIN_CORS: https://adm.aitronics.in
+      AUTH_CORS: https://aitronics.in,https://adm.aitronics.in
+
+      # Optional: disable telemetry
+      MEDUSA_TELEMETRY_DISABLED: "1"
+
     ports:
       - "9000:9000"
-    command: >
-      sh -c "
-      until pg_isready -h postgres -p 5432 -U postgres;
-      do echo waiting for db; sleep 2; done;
-      yarn medusa db:migrate &&
-      yarn start
-      "
 
 volumes:
   pgdata:

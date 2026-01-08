@@ -1,86 +1,52 @@
-# =========================
-# Medusa Dockerfile (Yarn)
-# =========================
-
-# --------
-# Build
-# --------
-FROM node:20-alpine AS build
-
+# ---- Base ----
+FROM node:20-alpine AS base
 WORKDIR /app
-
-RUN apk add --no-cache libc6-compat
 RUN corepack enable
 
-# Build-time args (so `yarn build` works in CI/Coolify)
-ARG DATABASE_URL="postgresql://postgres:1111@postgres:5432/postgres"
-ARG DATABASE_EXTRA='{"ssl":{"rejectUnauthorized":false}}'
-ARG REDIS_URL="redis://redis:6379"
+# Which folder contains medusa-config.ts/js?
+# If your backend is in repo root, keep "."
+# If your backend is in "backend", set BACKEND_DIR=backend in compose build args
+ARG BACKEND_DIR=.
 
-ARG JWT_SECRET="supersecret"
-ARG COOKIE_SECRET="supersecret"
+# ---- Dependencies ----
+FROM base AS deps
+WORKDIR /app/${BACKEND_DIR}
 
-ARG MEDUSA_ADMIN_ONBOARDING_TYPE="nextjs"
-ARG MEDUSA_ADMIN_ONBOARDING_NEXTJS_DIRECTORY="aitronics-storefront"
+# Copy only manifests first (better caching)
+COPY ${BACKEND_DIR}/package.json ${BACKEND_DIR}/yarn.lock* ${BACKEND_DIR}/package-lock.json* ${BACKEND_DIR}/pnpm-lock.yaml* ./
+RUN if [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
+    elif [ -f package-lock.json ]; then npm ci; \
+    elif [ -f pnpm-lock.yaml ]; then corepack prepare pnpm@latest --activate && pnpm i --frozen-lockfile; \
+    else yarn install; fi
 
-ARG STORE_CORS="http://localhost:8000,https://docs.medusajs.com,https://aitronics.in"
-ARG ADMIN_CORS="http://localhost:5173,http://localhost:9000,https://docs.medusajs.com,https://aitronics.in"
-ARG AUTH_CORS="http://localhost:5173,http://localhost:9000,http://localhost:8000,https://docs.medusajs.com,https://aitronics.in"
+# ---- Build ----
+FROM base AS build
+ARG BACKEND_DIR=.
+WORKDIR /app/${BACKEND_DIR}
 
-ARG PORT="9000"
+COPY --from=deps /app/${BACKEND_DIR}/node_modules ./node_modules
 
-# Export them as env for build step
-ENV DATABASE_URL=$DATABASE_URL
-ENV DATABASE_EXTRA=$DATABASE_EXTRA
-ENV REDIS_URL=$REDIS_URL
-ENV JWT_SECRET=$JWT_SECRET
-ENV COOKIE_SECRET=$COOKIE_SECRET
-ENV MEDUSA_ADMIN_ONBOARDING_TYPE=$MEDUSA_ADMIN_ONBOARDING_TYPE
-ENV MEDUSA_ADMIN_ONBOARDING_NEXTJS_DIRECTORY=$MEDUSA_ADMIN_ONBOARDING_NEXTJS_DIRECTORY
-ENV STORE_CORS=$STORE_CORS
-ENV ADMIN_CORS=$ADMIN_CORS
-ENV AUTH_CORS=$AUTH_CORS
-ENV PORT=$PORT
+# Copy backend source (this MUST include medusa-config.* and tsconfig.json if TS)
+COPY ${BACKEND_DIR}/ ./
 
-# Optional: disable telemetry noise during build
-ENV MEDUSA_TELEMETRY_DISABLED=1
+# If TS project: build if script exists (won't fail if absent)
+RUN if [ -f package.json ] && (cat package.json | grep -q "\"build\""); then yarn build || true; fi
 
-# Copy only manifests first for caching
-COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile
-
-# Copy source
-COPY . .
-
-# Build Medusa
-RUN yarn build
-
-
-# --------
-# Runner
-# --------
-FROM node:20-alpine AS runner
-
-WORKDIR /app
-
-# pg_isready for wait loop
-RUN apk add --no-cache libc6-compat postgresql-client
-RUN corepack enable
-
-RUN addgroup -S app && adduser -S app -G app
-
-# Copy runtime artifacts
-COPY --from=build /app/.medusa /app/.medusa
-COPY --from=build /app/package.json /app/package.json
-COPY --from=build /app/yarn.lock /app/yarn.lock
-COPY --from=build /app/node_modules /app/node_modules
+# ---- Runtime ----
+FROM base AS runner
+ARG BACKEND_DIR=.
+WORKDIR /app/${BACKEND_DIR}
 
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=9000
+
+# Optional: disable telemetry
 ENV MEDUSA_TELEMETRY_DISABLED=1
+
+COPY --from=build /app/${BACKEND_DIR} ./
 
 EXPOSE 9000
 
-USER app
-CMD ["yarn", "start"]
+# Run migrations then start
+CMD sh -c "yarn medusa db:migrate && yarn start"
