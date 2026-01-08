@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
+export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-/tmp/.config}"
+mkdir -p "$XDG_CONFIG_HOME"
+
 # Make sure the admin build exists before starting Medusa
 if [ ! -f "./build/admin/index.html" ]; then
   yarn build
