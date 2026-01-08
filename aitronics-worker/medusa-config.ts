@@ -7,18 +7,21 @@ const redisModules = redisUrl
   ? [
       {
         resolve: '@medusajs/cache-redis',
+        key: 'cacheService',
         options: {
           redisUrl,
         },
       },
       {
         resolve: '@medusajs/event-bus-redis',
+        key: 'eventBus',
         options: {
           redisUrl,
         },
       },
       {
         resolve: '@medusajs/workflow-engine-redis',
+        key: 'workflowEngine',
         options: {
           redis: {
             url: redisUrl,
