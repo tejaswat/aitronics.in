@@ -5,20 +5,18 @@ services:
     image: postgres:15
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: supersecret
+      POSTGRES_PASSWORD: "1111"
       POSTGRES_DB: postgres
     volumes:
       - pgdata:/var/lib/postgresql/data
-    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres -h 127.0.0.1"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
       interval: 5s
-      timeout: 3s
+      timeout: 5s
       retries: 20
 
   redis:
     image: redis:7
-    restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -26,38 +24,52 @@ services:
       retries: 20
 
   medusa:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        DATABASE_URL: postgresql://postgres:1111@postgres:5432/postgres
+        DATABASE_EXTRA: '{"ssl":{"rejectUnauthorized":false}}'
+        REDIS_URL: redis://redis:6379
+        JWT_SECRET: supersecret
+        COOKIE_SECRET: supersecret
+        MEDUSA_ADMIN_ONBOARDING_TYPE: nextjs
+        MEDUSA_ADMIN_ONBOARDING_NEXTJS_DIRECTORY: aitronics-storefront
+        STORE_CORS: https://aitronics.in
+        ADMIN_CORS: https://adm.aitronics.in
+        AUTH_CORS: https://aitronics.in,https://adm.aitronics.in
+        PORT: "9000"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://postgres:supersecret@postgres:5432/postgres
-      REDIS_URL: redis://redis:6379
-      HOST: 0.0.0.0
-      PORT: 9000
-      # Add your domain CORS so admin/store works
+      MEDUSA_ADMIN_ONBOARDING_TYPE: nextjs
+      MEDUSA_ADMIN_ONBOARDING_NEXTJS_DIRECTORY: aitronics-storefront
+
       STORE_CORS: https://aitronics.in
-      ADMIN_CORS: https://aitronics.in
-      AUTH_CORS: https://aitronics.in
-      # You MUST set these for auth cookies/jwt
+      ADMIN_CORS: https://adm.aitronics.in
+      AUTH_CORS: https://aitronics.in,https://adm.aitronics.in
+
+      PORT: "9000"
+      HOST: 0.0.0.0
+
+      REDIS_URL: redis://redis:6379
       JWT_SECRET: supersecret
       COOKIE_SECRET: supersecret
-    restart: unless-stopped
-    command: >
-      sh -c "
-      echo 'Waiting for Postgres...';
-      until pg_isready -h postgres -p 5432 -U postgres -d postgres; do
-        sleep 2; echo 'still waiting...';
-      done;
-      echo 'Running migrations...';
-      yarn medusa db:migrate;
-      echo 'Starting Medusa...';
-      yarn start
-      "
+
+      DATABASE_URL: postgresql://postgres:1111@postgres:5432/postgres
+      DATABASE_EXTRA: '{"ssl":{"rejectUnauthorized":false}}'
     ports:
       - "9000:9000"
+    command: >
+      sh -c "
+      until pg_isready -h postgres -p 5432 -U postgres;
+      do echo waiting for db; sleep 2; done;
+      yarn medusa db:migrate &&
+      yarn start
+      "
 
 volumes:
   pgdata:
