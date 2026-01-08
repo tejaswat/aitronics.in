@@ -14,6 +14,7 @@ RUN yarn build
 ENV NODE_ENV=production
 ENV PORT=9000
 ENV MEDUSA_WORKER_MODE=worker
+ENV DISABLE_MEDUSA_ADMIN=true
 EXPOSE 9000
 
 # Ensure migrations run once before starting Medusa
