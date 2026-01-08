@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
+# Make sure the admin build exists before starting Medusa
+if [ ! -f "./build/admin/index.html" ]; then
+  yarn build
+fi
+
 # Run migrations once per container lifetime to ensure schema exists
 if [ ! -f ".migrated" ]; then
   yarn medusa db:migrate
