@@ -19,4 +19,4 @@ EXPOSE 9000
 COPY start.sh .
 RUN chmod +x start.sh
 
-CMD ["/bin/sh", "start.sh"]
+CMD ["./start.sh"]
