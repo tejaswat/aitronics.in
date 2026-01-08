@@ -7,8 +7,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: "1111"
       POSTGRES_DB: postgres
-    ports:
-      - "5432:5432"   # optional, only if you want access from host
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -19,8 +17,6 @@ services:
 
   redis:
     image: redis:7
-    ports:
-      - "6379:6379"   # optional
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -31,8 +27,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        BACKEND_DIR: .
     depends_on:
       postgres:
         condition: service_healthy
@@ -43,7 +37,7 @@ services:
       HOST: 0.0.0.0
       PORT: "9000"
 
-      # IMPORTANT: use service names, not localhost
+      # IMPORTANT: docker service names, not localhost/127.0.0.1
       DATABASE_URL: postgresql://postgres:1111@postgres:5432/postgres
       REDIS_URL: redis://redis:6379
 
@@ -53,6 +47,7 @@ services:
       MEDUSA_ADMIN_ONBOARDING_TYPE: nextjs
       MEDUSA_ADMIN_ONBOARDING_NEXTJS_DIRECTORY: aitronics-storefront
 
+      # Your domains (prod)
       STORE_CORS: https://aitronics.in
       ADMIN_CORS: https://adm.aitronics.in
       AUTH_CORS: https://aitronics.in,https://adm.aitronics.in
