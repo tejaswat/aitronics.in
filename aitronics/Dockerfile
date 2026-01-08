@@ -1,24 +1,38 @@
-FROM node:20-alpine
+# ---------- Base ----------
+FROM node:20-alpine AS base
+WORKDIR /app
+ENV NODE_ENV=production
 
+# Needed by some native deps
+RUN apk add --no-cache libc6-compat
+
+# ---------- Dependencies ----------
+FROM base AS deps
+WORKDIR /app
+COPY package.json package-lock.json* yarn.lock* ./
+# Use npm since your local uses npm
+RUN npm ci
+
+# ---------- Build ----------
+FROM base AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+# Ensure TS config exists (you have tsconfig.json)
+RUN npm run build || true
+
+# ---------- Runtime ----------
+FROM base AS runner
 WORKDIR /app
 
-# Install OS deps needed by some node packages
-RUN apk add --no-cache libc6-compat bash netcat-openbsd
+# Copy app
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=build /app ./
 
-# Copy dependency manifests first for better caching
-COPY package.json yarn.lock ./
+# If you store uploads locally
+RUN mkdir -p /app/uploads
 
-# Install deps
-RUN corepack enable && yarn install --frozen-lockfile
-
-# Copy the rest of the backend code (includes medusa-config.*)
-COPY . .
-
-# Ensure entrypoint is executable
-COPY docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-ENV NODE_ENV=production
 EXPOSE 9000
 
-ENTRYPOINT ["/entrypoint.sh"]
+# Run migrations then start
+CMD ["sh", "-lc", "npx medusa db:migrate && npm run start"]
