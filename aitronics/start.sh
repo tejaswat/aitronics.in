@@ -6,7 +6,7 @@ mkdir -p "$XDG_CONFIG_HOME"
 export HMR_PORT="${HMR_PORT:-5173}"
 
 # Make sure the admin build exists before starting Medusa
-if [ ! -f "./build/admin/index.html" ]; then
+if [ ! -f ".medusa/server/public/admin/index.html" ]; then
   yarn build
 fi
 
