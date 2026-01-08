@@ -4,31 +4,28 @@ loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
 const redisUrl = process.env.REDIS_URL
 const redisModules = redisUrl
-  ? [
-      {
+  ? {
+      cacheService: {
         resolve: '@medusajs/cache-redis',
-        key: 'cacheService',
         options: {
           redisUrl,
         },
       },
-      {
+      eventBus: {
         resolve: '@medusajs/event-bus-redis',
-        key: 'eventBus',
         options: {
           redisUrl,
         },
       },
-      {
+      workflowEngine: {
         resolve: '@medusajs/workflow-engine-redis',
-        key: 'workflowEngine',
         options: {
           redis: {
             url: redisUrl,
           },
         },
       },
-    ]
+    }
   : undefined
 
 const workerMode = process.env.MEDUSA_WORKER_MODE as 'shared' | 'worker' | 'server' | undefined
@@ -51,5 +48,7 @@ module.exports = defineConfig({
     disable: disableAdmin,
     backendUrl: process.env.MEDUSA_BACKEND_URL,
   },
-  modules: redisModules,
+  modules: {
+    ...(redisModules ?? {}),
+  },
 })
