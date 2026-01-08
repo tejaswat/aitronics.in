@@ -48,5 +48,6 @@ COPY --from=build /app/${BACKEND_DIR} ./
 
 EXPOSE 9000
 
-# Run migrations then start
+# Run migrations then start server
 CMD sh -c "yarn medusa db:migrate && yarn start"
+
