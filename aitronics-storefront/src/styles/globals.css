@@ -1,57 +1,36 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap");
 @import "tailwindcss/base";
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
-@layer utilities {
-  /* Chrome, Safari and Opera */
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
+@layer base {
+  :root {
+    color-scheme: dark;
+    --ai-surface: #010409;
+    --ai-card: #0b1224;
+    --ai-accent: #0ea5e9;
+    --ai-secondary: #14b8a6;
+    --ai-glow: rgba(14, 165, 233, 0.18);
   }
 
-  .no-scrollbar::-webkit-scrollbar-track {
-    background-color: transparent;
+  body {
+    font-family: "Space Grotesk", "Inter", -apple-system, BlinkMacSystemFont,
+      "Segoe UI", sans-serif;
+    background-color: var(--ai-surface);
+    background-image: radial-gradient(circle at 20% -10%, rgba(14, 165, 233, 0.2), transparent 45%),
+      radial-gradient(circle at 80% 0%, rgba(59, 130, 246, 0.15), transparent 50%);
+    color: #e2e8f0;
+    min-height: 100vh;
   }
 
-  .no-scrollbar {
-    -ms-overflow-style: none; /* IE and Edge */
-    scrollbar-width: none; /* Firefox */
-  }
-
-  input:focus ~ label,
-  input:not(:placeholder-shown) ~ label {
-    @apply -translate-y-2 text-xsmall-regular;
-  }
-
-  input:focus ~ label {
-    @apply left-0;
-  }
-
-  input:-webkit-autofill,
-  input:-webkit-autofill:hover,
-  input:-webkit-autofill:focus,
-  textarea:-webkit-autofill,
-  textarea:-webkit-autofill:hover,
-  textarea:-webkit-autofill:focus,
-  select:-webkit-autofill,
-  select:-webkit-autofill:hover,
-  select:-webkit-autofill:focus {
-    border: 1px solid #212121;
-    -webkit-text-fill-color: #212121;
-    -webkit-box-shadow: 0 0 0px 1000px #fff inset;
-    transition: background-color 5000s ease-in-out 0s;
-  }
-
-  input[type="search"]::-webkit-search-decoration,
-  input[type="search"]::-webkit-search-cancel-button,
-  input[type="search"]::-webkit-search-results-button,
-  input[type="search"]::-webkit-search-results-decoration {
-    -webkit-appearance: none;
+  ::selection {
+    background-color: rgba(14, 165, 233, 0.35);
   }
 }
 
-@layer components {
+@layer utilities {
   .content-container {
-    @apply max-w-[1440px] w-full mx-auto px-6;
+    @apply max-w-[1440px] w-full mx-auto px-6 small:px-8;
   }
 
   .contrast-btn {
@@ -108,5 +87,25 @@
 
   .text-3xl-semi {
     @apply text-[32px] leading-[44px] font-semibold;
+  }
+
+  .glass-card {
+    @apply bg-white/[0.04] border border-white/10 rounded-[32px] shadow-[0_30px_65px_rgba(2,6,23,0.5)] p-6;
+  }
+
+  .accent-pill {
+    @apply inline-flex items-center gap-1 rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.4em] font-semibold bg-ui-bg-subtle/60 text-white border border-white/20;
+  }
+
+  .highlight-card {
+    @apply bg-[#050b19] border border-white/10 rounded-[28px] p-6 small:p-8 shadow-[0_20px_40px_rgba(2,6,23,0.65)] transition duration-300 ease-in-out hover:-translate-y-1 hover:border-ui-fg-base;
+  }
+
+  .hero-stat {
+    @apply flex flex-col items-center gap-1 text-center;
+  }
+
+  .hero-stat-value {
+    @apply text-3xl font-semibold;
   }
 }

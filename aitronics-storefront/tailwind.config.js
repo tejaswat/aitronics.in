@@ -34,6 +34,18 @@ module.exports = {
           80: "#1F2937",
           90: "#111827",
         },
+        ai: {
+          950: "#010409",
+          900: "#050816",
+          800: "#0b1224",
+          700: "#111b32",
+          600: "#151f3b",
+          500: "#1d2a4c",
+          400: "#0369a1",
+          300: "#14b8a6",
+          200: "#38bdf8",
+          100: "#bae6fd",
+        },
       },
       borderRadius: {
         none: "0px",
@@ -60,6 +72,17 @@ module.exports = {
       },
       fontFamily: {
         sans: [
+          "Inter",
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "Segoe UI",
+          "Roboto",
+          "Helvetica Neue",
+          "Ubuntu",
+          "sans-serif",
+        ],
+        display: [
+          "Space Grotesk",
           "Inter",
           "-apple-system",
           "BlinkMacSystemFont",

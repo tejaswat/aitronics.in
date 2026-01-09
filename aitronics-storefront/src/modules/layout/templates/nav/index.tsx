@@ -25,24 +25,30 @@ export default async function Nav() {
             </div>
           </div>
 
-          <div className="flex items-center h-full">
+          <div className="flex flex-col items-center h-full gap-0">
             <LocalizedClientLink
               href="/"
-              className="txt-compact-xlarge-plus hover:text-ui-fg-base uppercase"
+              className="txt-compact-xlarge-plus text-ui-fg-base hover:text-ui-fg-base uppercase tracking-[0.35em] md:tracking-[0.25em]"
               data-testid="nav-store-link"
             >
-              Medusa Store
+              AItronics
             </LocalizedClientLink>
+            <span className="text-[10px] italic tracking-[0.4em] text-ui-fg-subtle uppercase">
+              Intelligent retail
+            </span>
           </div>
 
           <div className="flex items-center gap-x-6 h-full flex-1 basis-0 justify-end">
             <div className="hidden small:flex items-center gap-x-6 h-full">
+              <LocalizedClientLink className="hover:text-ui-fg-base" href="/collections">
+                Solutions
+              </LocalizedClientLink>
               <LocalizedClientLink
                 className="hover:text-ui-fg-base"
                 href="/account"
                 data-testid="nav-account-link"
               >
-                Account
+                Portal
               </LocalizedClientLink>
             </div>
             <Suspense
