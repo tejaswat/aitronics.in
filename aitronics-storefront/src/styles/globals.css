@@ -6,25 +6,28 @@
 @layer base {
   :root {
     color-scheme: dark;
-    --ai-surface: #010409;
-    --ai-card: #0b1224;
-    --ai-accent: #0ea5e9;
-    --ai-secondary: #14b8a6;
-    --ai-glow: rgba(14, 165, 233, 0.18);
+    --ai-surface: #030712;
+    --ai-card: #0e1a2b;
+    --ai-accent: #5eead4;
+    --ai-secondary: #38bdf8;
+    --ai-glow: rgba(94, 234, 212, 0.25);
+    --ai-border: rgba(255, 255, 255, 0.08);
+    --ai-text: #f8fafc;
+    --ai-muted: #94a3b8;
   }
 
   body {
     font-family: "Space Grotesk", "Inter", -apple-system, BlinkMacSystemFont,
       "Segoe UI", sans-serif;
     background-color: var(--ai-surface);
-    background-image: radial-gradient(circle at 20% -10%, rgba(14, 165, 233, 0.2), transparent 45%),
-      radial-gradient(circle at 80% 0%, rgba(59, 130, 246, 0.15), transparent 50%);
-    color: #e2e8f0;
+    background-image: radial-gradient(circle at 15% -10%, rgba(94, 234, 212, 0.25), transparent 45%),
+      radial-gradient(circle at 85% 20%, rgba(56, 189, 248, 0.18), transparent 55%);
+    color: var(--ai-text);
     min-height: 100vh;
   }
 
   ::selection {
-    background-color: rgba(14, 165, 233, 0.35);
+    background-color: rgba(94, 234, 212, 0.35);
   }
 }
 
