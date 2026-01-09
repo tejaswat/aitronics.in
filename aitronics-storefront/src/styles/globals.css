@@ -94,7 +94,7 @@
   }
 
   .accent-pill {
-    @apply inline-flex items-center gap-1 rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.4em] font-semibold bg-ui-bg-subtle/60 text-white border border-white/20;
+    @apply inline-flex items-center gap-1 rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.4em] font-semibold bg-white/10 text-white border border-white/20;
   }
 
   .highlight-card {
