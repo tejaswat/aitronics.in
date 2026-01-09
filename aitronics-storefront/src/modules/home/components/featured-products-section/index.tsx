@@ -16,7 +16,7 @@ const fetchFeaturedProducts = async ({
     countryCode,
     queryParams: {
       limit,
-      tags: ["featured"],
+      tag: "featured",
     },
   })
 
