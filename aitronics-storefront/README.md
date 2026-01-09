@@ -123,3 +123,16 @@ You'll also need to setup the integrations in your Medusa server. See the [Medus
 - [Website](https://nextjs.org/)
 - [GitHub](https://github.com/vercel/next.js)
 - [Documentation](https://nextjs.org/docs)
+
+## Deploying with Coolify
+
+1. The `Dockerfile` in this folder handles Coolify builds by running `yarn install --immutable --inline-builds` and `yarn build`, then starting the server via `yarn start -p 8000`.
+2. Supply these env vars/secrets in Coolify so the storefront connects to your Medusa backend:
+   - `MEDUSA_BACKEND_URL` (`https://medusa.yourdomain.dev`)
+   - `NEXT_PUBLIC_BASE_URL` (your storefront FQDN)
+   - `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY`
+   - `NEXT_PUBLIC_DEFAULT_REGION`
+   - `NEXT_PUBLIC_STRIPE_KEY`, `NEXT_PUBLIC_MEDUSA_PAYMENTS_PUBLISHABLE_KEY`, `NEXT_PUBLIC_MEDUSA_PAYMENTS_ACCOUNT_ID` (if accepting payments)
+   - `REVALIDATE_SECRET`
+3. Confirm your Medusa API’s CORS settings include the storefront origin (`STORE_CORS`) and publishable keys are configured on the backend.
+4. In Coolify create an application resource pointing at this directory, enable SSL, expose port `8000`, and set the build/start commands as in this README.
