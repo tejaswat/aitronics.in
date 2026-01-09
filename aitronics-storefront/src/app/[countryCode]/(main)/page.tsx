@@ -1,9 +1,11 @@
 import { Metadata } from "next"
 
-import FeaturedProducts from "@modules/home/components/featured-products"
+import FeaturedProductsSection from "@modules/home/components/featured-products-section"
 import Hero from "@modules/home/components/hero"
-import HomeHighlights from "@modules/home/components/highlights"
-import { listCollections } from "@lib/data/collections"
+import HomeCategories from "@modules/home/components/categories"
+import SolutionsSection from "@modules/home/components/solutions"
+import WhyChoose from "@modules/home/components/why-choose"
+import CTABanner from "@modules/home/components/cta-banner"
 import { getRegion } from "@lib/data/regions"
 
 export const metadata: Metadata = {
@@ -21,23 +23,18 @@ export default async function Home(props: {
 
   const region = await getRegion(countryCode)
 
-  const { collections } = await listCollections({
-    fields: "id, handle, title",
-  })
-
-  if (!collections || !region) {
+  if (!region) {
     return null
   }
 
   return (
     <>
       <Hero />
-      <HomeHighlights />
-      <div className="py-12">
-        <ul className="flex flex-col gap-x-6">
-          <FeaturedProducts collections={collections} region={region} />
-        </ul>
-      </div>
+      <HomeCategories />
+      <FeaturedProductsSection countryCode={countryCode} />
+      <SolutionsSection />
+      <WhyChoose />
+      <CTABanner />
     </>
   )
 }
