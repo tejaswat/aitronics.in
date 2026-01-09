@@ -1,6 +1,7 @@
 import { Heading, Text } from "@medusajs/ui"
 
 import { listProducts } from "@lib/data/products"
+import { listCollections } from "@lib/data/collections"
 import { getRegion } from "@lib/data/regions"
 import { HttpTypes } from "@medusajs/types"
 import FeaturedProductCard from "./featured-product-card"
@@ -12,12 +13,22 @@ const fetchFeaturedProducts = async ({
   countryCode: string
   limit?: number
 }): Promise<HttpTypes.StoreProduct[]> => {
+  const { collections } = await listCollections({
+    handle: "featured",
+    limit: "1",
+  })
+
+  const queryParams: Record<string, any> = {
+    limit,
+  }
+
+  if (collections?.length) {
+    queryParams.collection_id = [collections[0].id]
+  }
+
   const { response } = await listProducts({
     countryCode,
-    queryParams: {
-      limit,
-      tag: "featured",
-    },
+    queryParams,
   })
 
   if (response.products.length) {
